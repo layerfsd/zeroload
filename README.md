@@ -7,4 +7,4 @@ Improvements to traditional reflective injection:
 - No C runtime, smaller executable size
 - Proper DLL forwarder chain parsing
 - Reusable, easier to read loader code
-- fn1va_32 hashing algorithm for better collision safety
+- fnv1a_32 hashing algorithm for better collision safety
