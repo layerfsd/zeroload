@@ -5,7 +5,7 @@ __declspec(noinline) LPVOID zeroload_start_address(VOID)
 	return _ReturnAddress(); 
 }
 
-LPBYTE __forceinline zeroload_get_base()
+VOID __declspec(dllexport) WINAPI zeroload(LPVOID lpParam)
 {
 	LPBYTE lpStartAddr = zeroload_start_address();
 
@@ -22,27 +22,10 @@ LPBYTE __forceinline zeroload_get_base()
 		if (pDosHeader->e_lfanew > 1024)
 			continue;
 
+		// found MZ and 00PE
 		if (((PIMAGE_NT_HEADERS)(lpStartAddr + pDosHeader->e_lfanew))->Signature == IMAGE_NT_SIGNATURE)
-			return lpStartAddr;
+			break;
 	}
 
-	return NULL;
-}
-
-VOID WINAPI zeroload_reflective_load(LPVOID lpBaseAddress)
-{
-
-}
-
-VOID __declspec(dllexport) WINAPI zeroload(LPVOID lpParam)
-{
-	LPBYTE lpBaseAddr = NULL;
-	
-	FnLoadLibraryA_t pLoadLibraryA = NULL;
-	FnGetProcAddress_t pGetProcAddress = NULL;
-	FnVirtualAlloc_t pVirtualAlloc = NULL;
-	FnNtFlushInstructionCache_t pNtFlushInstructionCache = NULL;
-
-	lpBaseAddr = zeroload_get_base();
-	//lpPEBLdr = zeroload_get_peb_ldr();
+	zeroload_load_image(lpStartAddr);
 }
