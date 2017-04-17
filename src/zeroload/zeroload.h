@@ -308,7 +308,7 @@ VOID __forceinline zeroload_load_relocations(LPBYTE lpBaseAddr, LPBYTE lpMapAddr
 				if (pFirst->type == IMAGE_REL_BASED_DIR64)
 					*(ULONG_PTR *)(pBlock + pFirst->offset) += (ULONG_PTR)lpDelta;
 				else if (pFirst->type == IMAGE_REL_BASED_HIGHLOW)
-					*(DWORD *)(pBlock + pFirst->offset) += (DWORD)lpDelta;
+					*(DWORD *)(pBlock + pFirst->offset) += (DWORD)((ULONG_PTR)lpDelta);
 				else if (pFirst->type == IMAGE_REL_BASED_HIGH)
 					*(WORD *)(pBlock + pFirst->offset) += HIWORD(lpDelta);
 				else if (pFirst->type == IMAGE_REL_BASED_LOW)
@@ -425,12 +425,12 @@ PIMAGE_SECTION_HEADER __forceinline zeroload_get_first_section(LPBYTE lpBaseAddr
 	if (wMagic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
 	{
 		PIMAGE_NT_HEADERS32 pNtHeaders = zeroload_get_nt_headers_32(lpBaseAddress);
-		return (PIMAGE_SECTION_HEADER)(&pNtHeaders->OptionalHeader + pNtHeaders->FileHeader.SizeOfOptionalHeader);
+		return (PIMAGE_SECTION_HEADER)((LPBYTE)(&pNtHeaders->OptionalHeader) + pNtHeaders->FileHeader.SizeOfOptionalHeader);
 	}
 	else if (wMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
 	{
 		PIMAGE_NT_HEADERS64 pNtHeaders = zeroload_get_nt_headers_64(lpBaseAddress);
-		return (PIMAGE_SECTION_HEADER)(&pNtHeaders->OptionalHeader + pNtHeaders->FileHeader.SizeOfOptionalHeader);
+		return (PIMAGE_SECTION_HEADER)((LPBYTE)(&pNtHeaders->OptionalHeader) + pNtHeaders->FileHeader.SizeOfOptionalHeader);
 	}
 
 	return NULL;
@@ -454,7 +454,7 @@ DWORD __forceinline zeroload_get_number_of_sections(LPBYTE lpBaseAddress)
 	return 0;
 }
 
-DWORD __forceinline zeroload_rva_to_offset(DWORD dwRva, LPBYTE lpBaseAddress)
+DWORD __forceinline zeroload_rva_to_offset(LPBYTE lpBaseAddress, DWORD dwRva)
 {
 	WORD wIndex = 0;
 	PIMAGE_SECTION_HEADER pSectionHeader = NULL;
@@ -477,26 +477,61 @@ DWORD __forceinline zeroload_get_export_offset_32(LPBYTE lpBaseAddr, const char 
 {
 	PIMAGE_NT_HEADERS32 pNtHeaders = (PIMAGE_NT_HEADERS32)zeroload_get_nt_headers(lpBaseAddr);
 	PIMAGE_DATA_DIRECTORY pExportDir = &pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+
+
 	return 0;
 }
 
 DWORD __forceinline zeroload_get_export_offset_64(LPBYTE lpBaseAddr, const char *szProc)
 {
-	PIMAGE_NT_HEADERS32 pNtHeaders = (PIMAGE_NT_HEADERS64)zeroload_get_nt_headers(lpBaseAddr);
+	PIMAGE_NT_HEADERS64 pNtHeaders = (PIMAGE_NT_HEADERS64)zeroload_get_nt_headers(lpBaseAddr);
 	PIMAGE_DATA_DIRECTORY pExportDir = &pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
 	return 0;
 }
 
-DWORD __forceinline zeroload_get_export_offset(LPBYTE lpBaseAddr, const char *szProc)
+PIMAGE_DATA_DIRECTORY __forceinline zeroload_get_data_directory(LPBYTE lpBaseAddr, WORD wIndex)
 {
-	WORD wMagic = 0;
+	WORD wMagic = zeroload_get_optional_header_magic(lpBaseAddr);
 	if (wMagic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
 	{
-		return zeroload_get_export_offset_32(lpBaseAddr, szProc);
+		PIMAGE_NT_HEADERS32 pNtHeaders = zeroload_get_nt_headers_32(lpBaseAddr);
+		return &pNtHeaders->OptionalHeader.DataDirectory[wIndex];
 	}
 	else if (wMagic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
 	{
-		return zeroload_get_export_offset_64(lpBaseAddr, szProc);
+		PIMAGE_NT_HEADERS64 pNtHeaders = zeroload_get_nt_headers_64(lpBaseAddr);
+		return &pNtHeaders->OptionalHeader.DataDirectory[wIndex];
+	}
+
+	return NULL;
+}
+
+DWORD __forceinline zeroload_get_export_offset(LPBYTE lpBaseAddr, const char *szProc)
+{
+	PIMAGE_DATA_DIRECTORY pDataDir = zeroload_get_data_directory(lpBaseAddr, IMAGE_DIRECTORY_ENTRY_EXPORT);
+
+	PIMAGE_EXPORT_DIRECTORY pExportDir = (PIMAGE_EXPORT_DIRECTORY)(lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pDataDir->VirtualAddress));
+
+	LPDWORD lpNameArray = lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfNames);
+	LPBYTE lpAddressArray = lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfFunctions);
+	LPWORD lpOrdinalArray = lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfNameOrdinals);
+
+	DWORD dwCounter = pExportDir->NumberOfNames;
+
+	DWORD dwProcHash = zeroload_compute_hash(szProc, 0);
+
+	while (dwCounter--)
+	{
+		char *szExport = (char *)(lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, *(DWORD *)(lpNameArray)));
+
+		if (dwProcHash == zeroload_compute_hash(szExport, 0))
+		{
+			lpAddressArray += (*(WORD *)lpOrdinalArray) * sizeof(DWORD);
+			return zeroload_rva_to_offset(lpBaseAddr, *(DWORD *)lpAddressArray);
+		}
+
+		++lpNameArray;
+		++lpOrdinalArray;
 	}
 
 	return 0;

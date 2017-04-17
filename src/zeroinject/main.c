@@ -17,6 +17,13 @@ int main()
 {
 	LoadLibraryA("user32.dll");
 	LPBYTE addr = zeroload_read_library_file("zeroload");
+	
+	DWORD dwOffset = zeroload_get_export_offset(addr, "zeroload");
+	
+	typedef void func(void);
+	func* f = (func*)(addr + dwOffset);
+	f();
+	
 	zeroload_load_image(addr);
 
 	//LoadLibraryA("zeroload.dll");
