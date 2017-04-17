@@ -5,20 +5,21 @@ __declspec(noinline) LPVOID zeroload_start_address(VOID)
 	return _ReturnAddress(); 
 }
 
+// if this is defined, support the old name
 #ifdef REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR
 __declspec(dllexport) ULONG_PTR WINAPI ReflectiveLoader(LPVOID lpParameter)
 #else
-__declspec(dllexport) ULONG_PTR WINAPI zeroload(LPVOID lpParam)
+__declspec(dllexport) ULONG_PTR WINAPI ZEROLOAD_EXPORT_NAME(LPVOID lpParam)
 #endif
 {
 	// prevent name mangling for the export, aka _zeroload@4
 	// #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-	// eh, that just did a forward... make it cdecl
+	// eh, that just did a forward...
 
 	BOOL bReflectAll = TRUE;
 
+	// do NOT reflectively load all imports in traditional method
 #ifdef REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR
-	// do NOT reflectively load all imports
 	bReflectAll = FALSE;
 #endif
 
@@ -28,5 +29,5 @@ __declspec(dllexport) ULONG_PTR WINAPI zeroload(LPVOID lpParam)
 		continue;
 
 	// returns &DllMain
-	return zeroload_load_image(lpStartAddr, bReflectAll);
+	return (ULONG_PTR)zeroload_load_image(lpStartAddr, bReflectAll);
 }

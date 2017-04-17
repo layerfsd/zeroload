@@ -32,7 +32,8 @@ int main()
 	// call the export.
 	
 	LPBYTE addr = zeroload_read_library_file("zeroload");
-	zeroload_load_image(addr);
+	//zeroload_load_image(addr, TRUE);
+	zeroload_load_image(addr, FALSE);
 
 	//LoadLibraryA("zeroload.dll");
 

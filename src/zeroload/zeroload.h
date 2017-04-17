@@ -25,6 +25,11 @@
 #define DLL_METASPLOIT_DETACH	5
 #define DLL_QUERY_HMODULE		6
 
+// if defined, we will rename the export
+#ifndef ZEROLOAD_EXPORT_NAME
+#define ZEROLOAD_EXPORT_NAME zeroload
+#endif
+
 // function typedefs
 typedef HMODULE	(WINAPI * FnLoadLibraryA_t)(LPCSTR);
 typedef FARPROC	(WINAPI * FnGetProcAddress_t)(HMODULE, LPCSTR);
@@ -32,17 +37,23 @@ typedef LPVOID	(WINAPI * FnVirtualAlloc_t)(LPVOID, SIZE_T, DWORD, DWORD);
 typedef BOOL	(WINAPI * FnDllMain_t)(HINSTANCE, DWORD, LPVOID);
 typedef DWORD	(NTAPI  * FnNtFlushInstructionCache_t)(HANDLE, PVOID, ULONG);
 
-
 static LPBYTE zeroload_read_library_file(const char *szLibrary);
-
 LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr);
 
 // struct typedefs
-typedef struct
+typedef struct _ZEROLOAD_IMAGE_RELOC
 {
 	WORD	offset : 12;
 	WORD	type : 4;
 } ZEROLOAD_IMAGE_RELOC, *PZEROLOAD_IMAGE_RELOC;
+
+// single-linked list of reflectively-loaded DLLs
+typedef struct _ZEROLOAD_REFLECTIVE_DLL
+{
+	struct _ZEROLOAD_REFLECTIVE_DLL *Next;
+	LPBYTE BaseAddr;
+	DWORD dwLibraryHash;
+} ZEROLOAD_REFLECTIVE_DLL, *PZEROLOAD_REFLECTIVE_DLL;
 
 // see zeroload_compute_hash()
 // DLLs we need loaded to do anything usefull...
@@ -241,7 +252,7 @@ VOID __forceinline zeroload_load_library()
 
 }
 
-VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
+VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BOOL bReflectAll)
 {
 	PIMAGE_IMPORT_DESCRIPTOR pImport = NULL;
 
@@ -262,9 +273,20 @@ VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
 
 		if (!lpLibrary)
 		{
-			LPBYTE addr = zeroload_read_library_file(szLibName);
-			if (addr)
-				lpLibrary = zeroload_load_image(addr);
+			if (!bReflectAll)
+			{
+				// use standard load library here
+				FnLoadLibraryA_t pLoadLibraryA = zeroload_resolve_function_hash(ZEROLOAD_HASH_KERNEL32, ZEROLOAD_HASH_LOADLIBRARYA);
+				pLoadLibraryA(szLibName);
+				lpLibrary = zeroload_get_module_hash(dwHash);
+			}
+			else
+			{
+				// use reflective load library
+				LPBYTE addr = zeroload_read_library_file(szLibName);
+				if (addr)
+					lpLibrary = zeroload_load_image(addr, TRUE);
+			}
 		}
 
 		if (lpLibrary)
@@ -360,7 +382,7 @@ LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr, BOOL bReflectAll)
 	zeroload_load_sections(lpBaseAddr, lpMapAddr);
 
 	// process imports
-	zeroload_load_imports(lpBaseAddr, lpMapAddr);
+	zeroload_load_imports(lpBaseAddr, lpMapAddr, bReflectAll);
 
 	// process relocs
 	zeroload_load_relocations(lpBaseAddr, lpMapAddr);
