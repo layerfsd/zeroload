@@ -24,7 +24,7 @@ int main()
 	func* f = (func*)(addr + dwOffset);
 	f();
 	
-	zeroload_load_image(addr);
+//	zeroload_load_image(addr);
 
 	//LoadLibraryA("zeroload.dll");
 

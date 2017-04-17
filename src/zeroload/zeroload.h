@@ -512,9 +512,9 @@ DWORD __forceinline zeroload_get_export_offset(LPBYTE lpBaseAddr, const char *sz
 
 	PIMAGE_EXPORT_DIRECTORY pExportDir = (PIMAGE_EXPORT_DIRECTORY)(lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pDataDir->VirtualAddress));
 
-	LPDWORD lpNameArray = lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfNames);
+	LPDWORD lpNameArray = (LPDWORD)(lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfNames));
 	LPBYTE lpAddressArray = lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfFunctions);
-	LPWORD lpOrdinalArray = lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfNameOrdinals);
+	LPWORD lpOrdinalArray = (LPWORD)(lpBaseAddr + zeroload_rva_to_offset(lpBaseAddr, pExportDir->AddressOfNameOrdinals));
 
 	DWORD dwCounter = pExportDir->NumberOfNames;
 
