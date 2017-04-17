@@ -21,6 +21,8 @@
 #pragma intrinsic(_ReturnAddress)
 
 // in case someone found this useful
+#define DLL_METASPLOIT_ATTACH	4
+#define DLL_METASPLOIT_DETACH	5
 #define DLL_QUERY_HMODULE		6
 
 // function typedefs
@@ -335,7 +337,7 @@ VOID __forceinline zeroload_load_relocations(LPBYTE lpBaseAddr, LPBYTE lpMapAddr
 
 }
 
-LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr)
+LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr, BOOL bReflectAll)
 {
 	FnVirtualAlloc_t pVirtualAlloc = NULL;
 	PIMAGE_NT_HEADERS pNtHeaders = NULL;
@@ -366,10 +368,13 @@ LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr)
 	// call entry point
 	if (pNtHeaders->OptionalHeader.AddressOfEntryPoint != 0x0)
 	{
+		// lpBaseAddr = &DllMain
 		lpBaseAddr = lpMapAddr + pNtHeaders->OptionalHeader.AddressOfEntryPoint;
 		((FnDllMain_t)lpBaseAddr)((HINSTANCE)lpMapAddr, DLL_PROCESS_ATTACH, NULL);
 	}
-	return lpMapAddr;
+
+	// lpBaseAddr = &DllMain
+	return lpBaseAddr;
 }
 
 static LPBYTE zeroload_read_library_file(const char *szLibrary)

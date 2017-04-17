@@ -24,14 +24,15 @@ void test_reflective_load(const char *szDll, const char *szProc)
 
 int main()
 {
-	LoadLibraryA("user32.dll");
-	test_reflective_load("zeroload", "zeroload");
+	//LoadLibraryA("user32.dll");
+	//test_reflective_load("zeroload", "zeroload");
 
-	system("PAUSE");
+	//system("PAUSE");
 	
 	// call the export.
 	
-//	zeroload_load_image(addr);
+	LPBYTE addr = zeroload_read_library_file("zeroload");
+	zeroload_load_image(addr);
 
 	//LoadLibraryA("zeroload.dll");
 
