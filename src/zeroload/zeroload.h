@@ -25,6 +25,11 @@
 #define DLL_METASPLOIT_DETACH	5
 #define DLL_QUERY_HMODULE		6
 
+// metasploit stuff
+#define EXITFUNC_SEH		0xEA320EFE
+#define EXITFUNC_THREAD		0x0A2A1DE0
+#define EXITFUNC_PROCESS	0x56A2B5F0
+
 // if defined, we will rename the export
 #ifndef ZEROLOAD_EXPORT_NAME
 #define ZEROLOAD_EXPORT_NAME zeroload
@@ -254,12 +259,15 @@ VOID __forceinline zeroload_load_library()
 
 VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BOOL bReflectAll)
 {
-	PIMAGE_IMPORT_DESCRIPTOR pImport = NULL;
-
-	pImport = zeroload_get_import_descriptor(lpMapAddr);
+	PIMAGE_IMPORT_DESCRIPTOR pImport = zeroload_get_import_descriptor(lpMapAddr);
 
 	while (pImport->Name)
 	{
+		// check if bound
+		if (pImport->TimeDateStamp != 0)
+		{
+		}
+
 		if (pImport->ForwarderChain != 0)
 		{
 			// todo: setup forwarders;
@@ -267,22 +275,24 @@ VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BO
 			continue;
 		}
 
+		LPBYTE lpLibrary = NULL;
 		const char *szLibName = lpMapAddr + pImport->Name;
-		DWORD dwHash = zeroload_compute_hash(szLibName, 0);
-		LPBYTE lpLibrary = zeroload_get_module_hash(dwHash);
-
-		if (!lpLibrary)
+		
+		if (!bReflectAll)
 		{
-			if (!bReflectAll)
+			// use standard load library here
+			FnLoadLibraryA_t pLoadLibraryA = zeroload_resolve_function_hash(ZEROLOAD_HASH_KERNEL32, ZEROLOAD_HASH_LOADLIBRARYA);
+			lpLibrary = (LPBYTE)pLoadLibraryA(szLibName);
+			//lpLibrary = zeroload_get_module_hash(dwHash);
+		}
+		else
+		{
+			// use reflective load library
+			DWORD dwHash = zeroload_compute_hash(szLibName, 0);
+			LPBYTE lpLibrary = zeroload_get_module_hash(dwHash);
+
+			if (!lpLibrary)
 			{
-				// use standard load library here
-				FnLoadLibraryA_t pLoadLibraryA = zeroload_resolve_function_hash(ZEROLOAD_HASH_KERNEL32, ZEROLOAD_HASH_LOADLIBRARYA);
-				lpLibrary = (LPBYTE)pLoadLibraryA(szLibName);
-				//lpLibrary = zeroload_get_module_hash(dwHash);
-			}
-			else
-			{
-				// use reflective load library
 				LPBYTE addr = zeroload_read_library_file(szLibName);
 				if (addr)
 					lpLibrary = zeroload_load_image(addr, TRUE);
