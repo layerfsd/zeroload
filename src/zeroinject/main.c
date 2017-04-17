@@ -13,20 +13,23 @@ void test_get_proc_addr(const char *szModule, const char *szProc)
 	printf("\n");
 }
 
+void test_reflective_load(const char *szDll, const char *szProc)
+{
+	LPBYTE addr = zeroload_read_library_file("zeroload");
+	DWORD dwOffset = zeroload_get_export_offset(addr, "zeroload");
+
+	printf("Calculated offset = %d\n", dwOffset);
+	(*(void(*)(void*))(addr + dwOffset))(addr);
+}
+
 int main()
 {
 	LoadLibraryA("user32.dll");
-	LPBYTE addr = zeroload_read_library_file("zeroload");
-	
-	DWORD dwOffset = zeroload_get_export_offset(addr, "zeroload");
-
-	printf("Calculated offset: %d", dwOffset);
+	test_reflective_load("zeroload", "zeroload");
 
 	system("PAUSE");
 	
-	typedef void __stdcall func(void*);
-	func* f = (func*)(addr + dwOffset);
-	f(addr);
+	// call the export.
 	
 //	zeroload_load_image(addr);
 
