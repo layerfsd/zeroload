@@ -15,8 +15,8 @@ void test_get_proc_addr(const char *szModule, const char *szProc)
 
 void test_reflective_load(const char *szDll, const char *szProc)
 {
-	LPBYTE addr = zeroload_read_library_file("zeroload");
-	DWORD dwOffset = zeroload_get_export_offset(addr, "zeroload");
+	LPBYTE addr = zeroload_read_library_file(szDll);
+	DWORD dwOffset = zeroload_get_export_offset(addr, szProc);
 
 	printf("Calculated offset = %d\n", dwOffset);
 	(*(void(*)(void*))(addr + dwOffset))(addr);
