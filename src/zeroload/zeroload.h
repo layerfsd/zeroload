@@ -277,8 +277,8 @@ VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BO
 			{
 				// use standard load library here
 				FnLoadLibraryA_t pLoadLibraryA = zeroload_resolve_function_hash(ZEROLOAD_HASH_KERNEL32, ZEROLOAD_HASH_LOADLIBRARYA);
-				pLoadLibraryA(szLibName);
-				lpLibrary = zeroload_get_module_hash(dwHash);
+				lpLibrary = (LPBYTE)pLoadLibraryA(szLibName);
+				//lpLibrary = zeroload_get_module_hash(dwHash);
 			}
 			else
 			{
