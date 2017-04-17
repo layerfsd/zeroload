@@ -5,9 +5,20 @@
 #include <winternl.h>
 #include <intrin.h>
 
-#pragma intrinsic(_ReturnAddress)
+// compilers love to use memcpy, memset, memmove, and memcmp
+// even when you ask to inline them with intrinsics...
+// it may be required to write a minimal C library to fix link errors in code
+//extern void * __cdecl memset(void * dest, int c, size_t num);
+//extern void * __cdecl memcpy(void * dest, const void * src, size_t num);
+//extern void * __cdecl memmove (void * dest, const void * src, size_t num);.
+//extern int __cdecl memcmp(const void * ptr1, const void * ptr2, size_t num);
+
 #pragma intrinsic(memcmp)
 #pragma intrinsic(memset)
+//#pragma intrinsic(memmove)
+//#pragma intrinsic(memcmp)
+
+#pragma intrinsic(_ReturnAddress)
 
 // in case someone found this useful
 #define DLL_QUERY_HMODULE		6
@@ -102,7 +113,7 @@ DWORD __forceinline zeroload_compute_hash(const void *input, DWORD len)
 		}
 		else
 		{
-			if ((data - (const unsigned char *)input) >= len)
+			if ((DWORD)(data - (const unsigned char *)input) >= len)
 				break;
 
 			if (*data == 0)
@@ -212,12 +223,12 @@ VOID __forceinline zeroload_load_sections(LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
 	{
 		LPBYTE pSectionVA = lpMapAddr + pSection->VirtualAddress;
 		LPBYTE pSectionRawData = lpBaseAddr + pSection->PointerToRawData;
-		
-		//DWORD dwSize = pSection->SizeOfRawData;
-		//while (dwSize--)
-			//pSectionVA[dwSize] = pSectionRawData[dwSize];
 
-		memcpy(pSectionVA, pSectionRawData, pSection->SizeOfRawData);
+		//memcpy(pSectionVA, pSectionRawData, pSection->SizeOfRawData);
+		DWORD dwSize = pSection->SizeOfRawData;
+		while (dwSize--)
+			pSectionVA[dwSize] = pSectionRawData[dwSize];
+
 
 		++pSection;
 	}
@@ -338,10 +349,10 @@ LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr)
 	lpMapAddr = pVirtualAlloc(NULL, pNtHeaders->OptionalHeader.SizeOfImage, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
 	// copy over headers
-	//DWORD dwSize = pNtHeaders->OptionalHeader.SizeOfHeaders;
-	//while (dwSize--)
-		//lpMapAddr[dwSize] = lpBaseAddr[dwSize];
-	memcpy((void*)lpMapAddr, (const void*)lpBaseAddr, pNtHeaders->OptionalHeader.SizeOfHeaders);
+	// memcpy((void*)lpMapAddr, (const void*)lpBaseAddr, pNtHeaders->OptionalHeader.SizeOfHeaders);
+	DWORD dwSize = pNtHeaders->OptionalHeader.SizeOfHeaders;
+	while (dwSize--)
+		lpMapAddr[dwSize] = lpBaseAddr[dwSize];
 
 	// load sections
 	zeroload_load_sections(lpBaseAddr, lpMapAddr);
@@ -367,7 +378,8 @@ static LPBYTE zeroload_read_library_file(const char *szLibrary)
 	DWORD dwBytesRead = 0;
 	LPVOID lpBuffer = NULL;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
-	char szFileName[MAX_PATH] = { 0 };
+	char szFileName[MAX_PATH];// = { 0 };
+	szFileName[0] = '\0';
 
 	do
 	{
@@ -383,13 +395,13 @@ static LPBYTE zeroload_read_library_file(const char *szLibrary)
 		if (dwLength == INVALID_FILE_SIZE || dwLength == 0)
 			break;
 
-		lpBuffer = HeapAlloc(GetProcessHeap(), 0, dwLength);
+		lpBuffer = VirtualAlloc(0, dwLength, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 		if (!lpBuffer)
 			break;
 
 		if (ReadFile(hFile, lpBuffer, dwLength, &dwBytesRead, NULL) == FALSE)
 		{
-			HeapFree(GetProcessHeap(), 0, lpBuffer);
+			VirtualFree(lpBuffer, dwLength, MEM_RELEASE);
 			lpBuffer = NULL;
 		}
 	} while (0);
@@ -473,22 +485,6 @@ DWORD __forceinline zeroload_rva_to_offset(LPBYTE lpBaseAddress, DWORD dwRva)
 	return 0;
 }
 
-DWORD __forceinline zeroload_get_export_offset_32(LPBYTE lpBaseAddr, const char *szProc)
-{
-	PIMAGE_NT_HEADERS32 pNtHeaders = (PIMAGE_NT_HEADERS32)zeroload_get_nt_headers(lpBaseAddr);
-	PIMAGE_DATA_DIRECTORY pExportDir = &pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
-
-
-	return 0;
-}
-
-DWORD __forceinline zeroload_get_export_offset_64(LPBYTE lpBaseAddr, const char *szProc)
-{
-	PIMAGE_NT_HEADERS64 pNtHeaders = (PIMAGE_NT_HEADERS64)zeroload_get_nt_headers(lpBaseAddr);
-	PIMAGE_DATA_DIRECTORY pExportDir = &pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
-	return 0;
-}
-
 PIMAGE_DATA_DIRECTORY __forceinline zeroload_get_data_directory(LPBYTE lpBaseAddr, WORD wIndex)
 {
 	WORD wMagic = zeroload_get_optional_header_magic(lpBaseAddr);
@@ -535,4 +531,24 @@ DWORD __forceinline zeroload_get_export_offset(LPBYTE lpBaseAddr, const char *sz
 	}
 
 	return 0;
+}
+
+BOOL __forceinline zeroload_valid_pe(LPBYTE lpBaseAddr)
+{
+	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)lpBaseAddr;
+
+	if (pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+		return FALSE;
+
+	if (pDosHeader->e_lfanew <= sizeof(IMAGE_DOS_HEADER))
+		return FALSE;
+
+	if (pDosHeader->e_lfanew > 1024)
+		return FALSE;
+
+	// found MZ and 00PE
+	if (((PIMAGE_NT_HEADERS)(lpBaseAddr + pDosHeader->e_lfanew))->Signature != IMAGE_NT_SIGNATURE)
+		return FALSE;
+
+	return TRUE;
 }

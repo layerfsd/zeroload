@@ -19,10 +19,14 @@ int main()
 	LPBYTE addr = zeroload_read_library_file("zeroload");
 	
 	DWORD dwOffset = zeroload_get_export_offset(addr, "zeroload");
+
+	printf("Calculated offset: %d", dwOffset);
+
+	system("PAUSE");
 	
-	typedef void func(void);
+	typedef void __stdcall func(void*);
 	func* f = (func*)(addr + dwOffset);
-	f();
+	f(addr);
 	
 //	zeroload_load_image(addr);
 
