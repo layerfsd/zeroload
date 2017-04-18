@@ -43,7 +43,7 @@ typedef BOOL	(WINAPI * FnDllMain_t)(HINSTANCE, DWORD, LPVOID);
 typedef DWORD	(NTAPI  * FnNtFlushInstructionCache_t)(HANDLE, PVOID, ULONG);
 
 static LPBYTE zeroload_read_library_file(const char *szLibrary);
-LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr);
+LPBYTE __forceinline zeroload_load_image(LPBYTE lpBaseAddr, BOOL bReflectAll);
 
 // struct typedefs
 typedef struct _ZEROLOAD_IMAGE_RELOC
@@ -281,7 +281,8 @@ VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BO
 		if (!bReflectAll)
 		{
 			// use standard load library here
-			FnLoadLibraryA_t pLoadLibraryA = zeroload_resolve_function_hash(ZEROLOAD_HASH_KERNEL32, ZEROLOAD_HASH_LOADLIBRARYA);
+			FnLoadLibraryA_t pLoadLibraryA = 
+				(FnLoadLibraryA_t)zeroload_resolve_function_hash(ZEROLOAD_HASH_KERNEL32, ZEROLOAD_HASH_LOADLIBRARYA);
 			lpLibrary = (LPBYTE)pLoadLibraryA(szLibName);
 			//lpLibrary = zeroload_get_module_hash(dwHash);
 		}
