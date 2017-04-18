@@ -257,6 +257,28 @@ VOID __forceinline zeroload_load_library()
 
 }
 
+VOID __forceinline zeroload_load_module_imports(LPBYTE lpMapAddr, LPBYTE lpLibrary, PIMAGE_IMPORT_DESCRIPTOR pImport)
+{
+	PIMAGE_THUNK_DATA lpOrginalThunk = (PIMAGE_THUNK_DATA)(lpMapAddr + pImport->OriginalFirstThunk);
+	ULONG_PTR *lpIAT = (ULONG_PTR *)(lpMapAddr + pImport->FirstThunk);
+
+	while (*(ULONG_PTR *)lpIAT)
+	{
+		if (lpOrginalThunk && lpOrginalThunk->u1.Ordinal & IMAGE_ORDINAL_FLAG)
+		{
+		}
+		else
+		{
+			PIMAGE_IMPORT_BY_NAME pByName = (PIMAGE_IMPORT_BY_NAME)(lpMapAddr + *lpIAT);
+			*lpIAT = (ULONG_PTR)zeroload_get_proc_addr(lpLibrary, pByName->Name);
+		}
+
+		++lpIAT;
+		if (lpOrginalThunk)
+			++lpOrginalThunk;
+	}
+}
+
 VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BOOL bReflectAll)
 {
 	PIMAGE_IMPORT_DESCRIPTOR pImport = zeroload_get_import_descriptor(lpMapAddr);
@@ -302,24 +324,7 @@ VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BO
 
 		if (lpLibrary)
 		{
-			PIMAGE_THUNK_DATA lpOrginalThunk = (PIMAGE_THUNK_DATA)(lpMapAddr + pImport->OriginalFirstThunk);
-			ULONG_PTR *lpIAT = (ULONG_PTR *)(lpMapAddr + pImport->FirstThunk);
-
-			while (*(ULONG_PTR *)lpIAT)
-			{
-				if (lpOrginalThunk && lpOrginalThunk->u1.Ordinal & IMAGE_ORDINAL_FLAG)
-				{
-				}
-				else
-				{
-					PIMAGE_IMPORT_BY_NAME pByName = (PIMAGE_IMPORT_BY_NAME)(lpMapAddr + *lpIAT);
-					*lpIAT = (ULONG_PTR)zeroload_get_proc_addr(lpLibrary, pByName->Name);
-				}
-
-				++lpIAT;
-				if (lpOrginalThunk)
-					++lpOrginalThunk;
-			}
+			zeroload_load_module_imports(lpMapAddr, lpLibrary, pImport);
 		}
 
 		++pImport;
