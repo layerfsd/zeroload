@@ -264,8 +264,10 @@ VOID __forceinline zeroload_load_module_imports(LPBYTE lpMapAddr, LPBYTE lpLibra
 
 	while (*(ULONG_PTR *)lpIAT)
 	{
-		if (lpOrginalThunk && lpOrginalThunk->u1.Ordinal & IMAGE_ORDINAL_FLAG)
+		if (lpOrginalThunk && IMAGE_SNAP_BY_ORDINAL(lpOrginalThunk->u1.Ordinal))
 		{
+			WORD wOriginalOrdinal = IMAGE_ORDINAL(lpOrginalThunk->u1.Ordinal);
+			//WORD dwOrdinal = 
 		}
 		else
 		{
@@ -279,26 +281,28 @@ VOID __forceinline zeroload_load_module_imports(LPBYTE lpMapAddr, LPBYTE lpLibra
 	}
 }
 
+NTSTATUS __forceinline zeroload_load_imports
+
 VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BOOL bReflectAll)
 {
-	PIMAGE_IMPORT_DESCRIPTOR pImport = zeroload_get_import_descriptor(lpMapAddr);
+	PIMAGE_IMPORT_DESCRIPTOR pIatEntry = zeroload_get_import_descriptor(lpMapAddr);
 
-	while (pImport->Name)
+	while (pIatEntry->Name)
 	{
 		// check if bound
-		if (pImport->TimeDateStamp != 0)
+		if (pIatEntry->TimeDateStamp != 0)
 		{
 		}
 
-		if (pImport->ForwarderChain != 0)
+		if (pIatEntry->ForwarderChain != 0)
 		{
 			// todo: setup forwarders;
-			++pImport;
+			++pIatEntry;
 			continue;
 		}
 
 		LPBYTE lpLibrary = NULL;
-		const char *szLibName = lpMapAddr + pImport->Name;
+		const char *szLibName = lpMapAddr + pIatEntry->Name;
 		
 		if (!bReflectAll)
 		{
@@ -324,10 +328,10 @@ VOID __forceinline zeroload_load_imports(LPBYTE lpBaseAddr, LPBYTE lpMapAddr, BO
 
 		if (lpLibrary)
 		{
-			zeroload_load_module_imports(lpMapAddr, lpLibrary, pImport);
+			zeroload_load_module_imports(lpMapAddr, lpLibrary, pIatEntry);
 		}
 
-		++pImport;
+		++pIatEntry;
 	}
 }
 

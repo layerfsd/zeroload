@@ -6,6 +6,99 @@
 #include "peb.h"
 #include "state.h"
 
+LPBYTE ZLAPI zl_load_image(PZEROLOAD_STATE pState, LPBYTE lpFileAddr, LPBYTE lpParam, DWORD dwHash);
+
+/**
+* @remarks this function probably has relocs, and so isn't called until snapping the IAT (after reloc fixup)
+*/
+LPBYTE ZLAPI zl_load_read_library_file(PZEROLOAD_STATE pState, const char *szLibrary, LPDWORD dwBytesRead)
+{
+	DWORD dwLength = 0;
+	LPVOID lpBuffer = NULL;
+	HANDLE hFile = INVALID_HANDLE_VALUE;
+	char szFileName[MAX_PATH];// = { 0 };
+	szFileName[0] = '\0';
+
+	do
+	{
+		// todo: search ENV variables too, also doesn't necessarily have to be a .dll
+		if (0 == pState->pSearchPathA(NULL, szLibrary, ".dll", sizeof(szFileName), szFileName, NULL))
+			break;
+
+		hFile = pState->pCreateFileA(szFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, 0);
+		if (hFile == INVALID_HANDLE_VALUE)
+			break;
+
+		dwLength = pState->pGetFileSize(hFile, NULL);
+		if (dwLength == INVALID_FILE_SIZE || dwLength == 0)
+			break;
+
+		lpBuffer = pState->pVirtualAlloc(0, dwLength, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		if (!lpBuffer)
+			break;
+
+		if (pState->pReadFile(hFile, lpBuffer, dwLength, dwBytesRead, NULL) == FALSE)
+		{
+			pState->pVirtualFree(lpBuffer, dwLength, MEM_RELEASE);
+			lpBuffer = NULL;
+		}
+	} while (0);
+
+	if (hFile != INVALID_HANDLE_VALUE)
+		pState->pCloseHandle(hFile);
+
+	return (LPBYTE)lpBuffer;
+}
+
+BOOL ZLAPI zl_load_import_module(PZEROLOAD_STATE pState, const char *szName, LPBYTE *ppOutDll, BOOL *bAlreadyLoaded)
+{
+	DWORD dwHash = zl_compute_hash((const void *)szName, 0);
+	*bAlreadyLoaded = TRUE;
+
+	// check if its already in the PEB, we will nom it with either strategy
+	*ppOutDll = zl_peb_module(dwHash);
+	if (*ppOutDll)
+		return TRUE;
+
+	// we have two strategies
+	if (pState->bReflectAll)
+	{
+		DWORD dwBytesRead = 0;
+		LPBYTE lpFileAddr = NULL;
+		PZEROLOAD_DLL pLib = zl_state_dll_find(pState, dwHash);
+		
+		if (pLib)
+		{
+			*ppOutDll = pLib->lpBaseAddress;
+			return TRUE;
+		}
+
+		*bAlreadyLoaded = FALSE;
+
+		lpFileAddr = zl_load_read_library_file(pState, szName, &dwBytesRead);
+
+		if (!lpFileAddr)
+			return FALSE;
+	
+		*ppOutDll = zl_load_image(pState, lpFileAddr, NULL, dwHash);
+
+		pState->pVirtualFree(lpFileAddr, dwBytesRead, MEM_RELEASE);
+
+		if (*ppOutDll)
+			return TRUE;
+	}
+	else
+	{
+		*bAlreadyLoaded = FALSE;
+
+		*ppOutDll = (LPBYTE)pState->pLoadLibraryA(szName);
+		if (*ppOutDll)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
 void ZLAPI zl_load_sections(LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
 {
 	PIMAGE_SECTION_HEADER pSection = NULL;
@@ -68,6 +161,13 @@ void ZLAPI zl_load_relocations(LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
 
 BOOL ZLAPI zl_load_new_import(PZEROLOAD_STATE pState, PIMAGE_BOUND_IMPORT_DESCRIPTOR *ppBound, PIMAGE_BOUND_IMPORT_DESCRIPTOR pFirst)
 {
+	PIMAGE_BOUND_IMPORT_DESCRIPTOR pBound = NULL;
+	char *szBoundImportName = NULL;
+
+	pBound = *ppBound;
+	szBoundImportName = (char *)pFirst + pBound->OffsetModuleName;
+
+
 	return TRUE;
 }
 
@@ -100,7 +200,7 @@ BOOL ZLAPI zl_load_old_imports(PZEROLOAD_STATE pState, PIMAGE_IMPORT_DESCRIPTOR 
 	return TRUE;
 }
 
-void zl_load_imports(PZEROLOAD_STATE pState, LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
+void ZLAPI zl_load_imports(PZEROLOAD_STATE pState, LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
 {
 }
 
