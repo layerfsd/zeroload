@@ -120,7 +120,7 @@ typedef struct _ZEROLOAD_IMAGE_RELOC
 typedef struct _ZEROLOAD_DLL
 {
 	struct _ZEROLOAD_DLL *pNext;
-	LPBYTE lpBaseAddress;
+	LPBYTE lpDllBase;
 	DWORD dwSize;
 	DWORD dwHash;
 } ZEROLOAD_DLL, *PZEROLOAD_DLL;

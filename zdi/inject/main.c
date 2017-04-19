@@ -29,11 +29,21 @@ void print_hashes()
 	print_hash("NtFlushInstructionCache");
 }
 
+void test_local_load(char *szDll)
+{
+	DWORD dwBytesRead = 0;
+	LPBYTE lpFileAddr = NULL;
+	PZEROLOAD_STATE pState = zl_state_init(TRUE, FALSE, 100);
+
+	lpFileAddr = zl_load_read_library_file(pState, "dll.dll", dwBytesRead);
+	
+	zl_load_image(pState, lpFileAddr, NULL, 0);
+}
+
 int main(int argc, char *argv[])
 {
 	print_hashes();
-
-	//PZEROLOAD_STATE pState = zl_state_init();
+	test_local_load("dll.dll");
 
 	system("PAUSE");
 	return 0;

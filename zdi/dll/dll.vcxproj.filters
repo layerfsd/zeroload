@@ -47,5 +47,11 @@
     <ClInclude Include="zeroload\peb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="zeroload\import.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zeroload\util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

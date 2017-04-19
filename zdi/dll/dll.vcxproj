@@ -206,11 +206,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="zeroload\hash.h" />
+    <ClInclude Include="zeroload\import.h" />
     <ClInclude Include="zeroload\load.h" />
     <ClInclude Include="zeroload\parse.h" />
     <ClInclude Include="zeroload\peb.h" />
     <ClInclude Include="zeroload\state.h" />
     <ClInclude Include="zeroload\types.h" />
+    <ClInclude Include="zeroload\util.h" />
     <ClInclude Include="zeroload\zeroload.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

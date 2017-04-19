@@ -30,7 +30,7 @@ PZEROLOAD_DLL ZLAPI zl_state_dll_add(PZEROLOAD_STATE pState, LPBYTE lpBaseAddr, 
 	pDll->pNext = pState->pLoadedList;
 	pState->pLoadedList = pDll;
 
-	pDll->lpBaseAddress = lpBaseAddr;
+	pDll->lpDllBase = lpBaseAddr;
 	pDll->dwSize = dwSize;
 	pDll->dwHash = dwHash;
 

@@ -74,6 +74,22 @@ PIMAGE_DATA_DIRECTORY ZLAPI zl_data_directory(LPBYTE lpBaseAddr, WORD wIndex)
 	return NULL;
 }
 
+LPVOID ZLAPI zl_data_directory_virtual_address(LPBYTE lpBaseAddr, WORD wIndex)
+{
+	PIMAGE_DATA_DIRECTORY pDataDir = NULL;
+
+	pDataDir = zl_data_directory(lpBaseAddr, wIndex);
+
+	if (!pDataDir)
+		return NULL;
+
+	if (pDataDir->Size == 0)
+		return NULL;
+
+	return (LPVOID)(lpBaseAddr + pDataDir->VirtualAddress);
+}
+
+
 /**
 @return &IMAGE_NT_HEADERS->FileHeader, or NULL
 */
