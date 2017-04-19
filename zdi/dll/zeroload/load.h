@@ -50,6 +50,11 @@ LPBYTE ZLAPI zl_load_read_library_file(PZEROLOAD_STATE pState, const char *szLib
 	return (LPBYTE)lpBuffer;
 }
 
+/**
+* @description called during the IAT snapping, checks if DLL is in PEB, if not does the bReflectAll strategy
+*
+* @remarks todo: trim the beast
+*/
 BOOL ZLAPI zl_load_import_module(PZEROLOAD_STATE pState, const char *szName, LPBYTE *ppOutDll, BOOL *bAlreadyLoaded)
 {
 	DWORD dwHash = zl_compute_hash((const void *)szName, 0);
@@ -159,25 +164,148 @@ void ZLAPI zl_load_relocations(LPBYTE lpBaseAddr, LPBYTE lpMapAddr)
 	}
 }
 
-BOOL ZLAPI zl_load_new_import(PZEROLOAD_STATE pState, PIMAGE_BOUND_IMPORT_DESCRIPTOR *ppBound, PIMAGE_BOUND_IMPORT_DESCRIPTOR pFirst)
+BOOL ZLAPI zl_load_snap_iat(PZEROLOAD_STATE pState, LPBYTE lpExportAddr, LPBYTE lpImportAddr, PIMAGE_IMPORT_DESCRIPTOR pIatEntry)
 {
+	PIMAGE_DATA_DIRECTORY pDataDir = NULL;
+	PIMAGE_EXPORT_DIRECTORY pExportDir = NULL;
+	PIMAGE_NT_HEADERS pNtHeaders = NULL;
+	LPVOID pIAT = NULL;
+
+	pNtHeaders = zl_nt_headers(lpImportAddr);
+
+	if (!pNtHeaders)
+		return FALSE;
+
+	pDataDir = zl_data_directory(lpExportAddr, IMAGE_DIRECTORY_ENTRY_EXPORT);
+
+	if (!pDataDir)
+		return FALSE;
+
+	pExportDir = (PIMAGE_EXPORT_DIRECTORY)(lpExportAddr + pDataDir->VirtualAddress);
+
+	pDataDir = zl_data_directory(lpImportAddr, IMAGE_DIRECTORY_ENTRY_IAT);
+
+	if (pDataDir)
+		pIAT = (LPVOID)(lpImportAddr + pDataDir->VirtualAddress);
+
+	if (!pIAT)
+	{
+		PIMAGE_SECTION_HEADER pSectionHeader = NULL;
+		DWORD dwRva = 0;
+
+		pSectionHeader = IMAGE_FIRST_SECTION(pNtHeaders);
+
+		dwRva = pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+
+		if (dwRva)
+		{
+			WORD wIndex = 0;
+			for (wIndex = 0; wIndex < pNtHeaders->FileHeader.NumberOfSections; wIndex++)
+			{
+				if ((dwRva >= pSectionHeader->VirtualAddress) &&
+					(dwRva < (pSectionHeader->VirtualAddress + pSectionHeader->SizeOfRawData)))
+					pIAT = (PVOID)((ULONG_PTR)(lpImportAddr) + pSectionHeader->VirtualAddress);
+			}
+		}
+
+		if (!pIAT)
+			return FALSE;
+	}
+
+	if (pIatEntry->FirstThunk)
+	{
+		PIMAGE_THUNK_DATA pFirstThunk = NULL, pOriginalThunk = NULL;
+		char *szImportName = NULL;
+
+		pFirstThunk = (PIMAGE_THUNK_DATA)((ULONG_PTR)lpImportAddr + pIatEntry->FirstThunk);
+
+		if (pIatEntry->Characteristics < pNtHeaders->OptionalHeader.SizeOfHeaders ||
+			pIatEntry->Characteristics >= pNtHeaders->OptionalHeader.SizeOfImage)
+		{
+			pOriginalThunk = pFirstThunk;
+		}
+		else
+		{
+			pOriginalThunk = (PIMAGE_THUNK_DATA)((ULONG_PTR)lpImportAddr + pIatEntry->OriginalFirstThunk);
+		}
+
+		szImportName = (LPSTR)((ULONG_PTR)lpImportAddr + pIatEntry->Name);
+		while (pOriginalThunk->u1.AddressOfData)
+		{
+			if (!zl_load_snap_thunk(lpExportAddr, lpImportAddr, pOriginalThunk, pFirstThunk, pExportDir, szImportName))
+				return FALSE;
+
+			++pFirstThunk;
+			++pOriginalThunk;
+		}
+	}
+
+}
+
+BOOL ZLAPI zl_load_new_import(PZEROLOAD_STATE pState, LPBYTE lpBaseAddr, PIMAGE_BOUND_IMPORT_DESCRIPTOR *ppBound, PIMAGE_BOUND_IMPORT_DESCRIPTOR pFirst)
+{
+	BOOL bIsAlreadyLoaded = FALSE;
+	LPBYTE pDllBaseAddr = NULL;
+	PIMAGE_BOUND_FORWARDER_REF pForwarderRef = NULL;
 	PIMAGE_BOUND_IMPORT_DESCRIPTOR pBound = NULL;
 	char *szBoundImportName = NULL;
+	char *szForwarderName = NULL;
+	WORD wRefIndex = 0;
 
 	pBound = *ppBound;
 	szBoundImportName = (char *)pFirst + pBound->OffsetModuleName;
 
+	if (!zl_load_import_module(pState, szBoundImportName, &pDllBaseAddr, &bIsAlreadyLoaded))
+		return FALSE;
+
+	pForwarderRef = (PIMAGE_BOUND_FORWARDER_REF)(pBound + 1);
+	
+	for (wRefIndex = 0; wRefIndex < pBound->NumberOfModuleForwarderRefs; ++wRefIndex)
+	{
+		LPBYTE lpForwardAddr = NULL;
+		szForwarderName = (char *)pFirst + pForwarderRef->OffsetModuleName;
+
+		if (!zl_load_import_module(pState, szForwarderName, &lpForwardAddr, &bIsAlreadyLoaded))
+			return FALSE;
+
+		++pForwarderRef;
+	}
+
+	pFirst = (PIMAGE_BOUND_IMPORT_DESCRIPTOR)pForwarderRef;
+
+	// we don't check for stale entries, just assume they are stale
+
+	PIMAGE_DATA_DIRECTORY pImportDir = NULL;
+	PIMAGE_IMPORT_DESCRIPTOR pImportEntry = NULL;
+	
+	pImportDir = zl_data_directory(lpBaseAddr, IMAGE_DIRECTORY_ENTRY_IMPORT);
+	pImportEntry = (PIMAGE_IMPORT_DESCRIPTOR)(lpBaseAddr + pImportDir->VirtualAddress);
+
+	while (pImportEntry->Name)
+	{
+		char *szImportName = ((LPSTR)((ULONG_PTR)lpBaseAddr + pImportEntry->Name));
+		if (zl_compute_hash(szImportName) == zl_compute_hash(szBoundImportName))
+			break;
+
+		++pImportEntry;
+	}
+
+	if (!pImportEntry->Name)
+		return FALSE;
+
+	if (!zl_load_snap_iat(pDllBaseAddr, lpBaseAddr, pImportEntry))
+		return FALSE;
 
 	return TRUE;
 }
 
-BOOL ZLAPI zl_load_new_imports(PZEROLOAD_STATE pState, PIMAGE_BOUND_IMPORT_DESCRIPTOR pBound)
+BOOL ZLAPI zl_load_new_imports(PZEROLOAD_STATE pState, LPBYTE lpBaseAddr, PIMAGE_BOUND_IMPORT_DESCRIPTOR pBound)
 {
 	PIMAGE_BOUND_IMPORT_DESCRIPTOR pFirst = pBound;
 
 	while (pBound->OffsetModuleName)
 	{
-		if (!zl_load_new_import(pState, &pBound, pFirst))
+		if (!zl_load_new_import(pState, lpBaseAddr, &pBound, pFirst))
 			return FALSE;
 	}
 
