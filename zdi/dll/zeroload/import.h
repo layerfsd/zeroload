@@ -24,6 +24,14 @@ BOOL ZLAPI zl_load_import_module(PZEROLOAD_STATE pState, const char *szName, LPB
 	if (*ppOutDll)
 		return TRUE;
 
+	if (szName[0] == 'a' && szName[1] == 'p')
+	{
+		*ppOutDll = (LPBYTE)LoadLibraryA(szName);
+		
+		if (*ppOutDll)
+			return TRUE;
+	}
+
 	// we have two strategies
 	if (pState->bReflectAll)
 	{
@@ -44,9 +52,15 @@ BOOL ZLAPI zl_load_import_module(PZEROLOAD_STATE pState, const char *szName, LPB
 		if (!lpFileAddr)
 			return FALSE;
 
-		*ppOutDll = zl_load_image(pState, lpFileAddr, NULL, dwHash);
+		if (!zl_load_image(pState, lpFileAddr, NULL, dwHash))
+			return FALSE;
 
 		pState->pVirtualFree(lpFileAddr, dwBytesRead, MEM_RELEASE);
+
+		pLib = zl_state_dll_find(pState, dwHash);
+
+		if (pLib)
+			*ppOutDll = pLib->lpDllBase;
 
 		if (*ppOutDll)
 			return TRUE;
@@ -340,5 +354,5 @@ BOOL ZLAPI zl_load_imports(PZEROLOAD_STATE pState, LPBYTE lpMapAddr)
 	if (pImport)
 		return zl_load_old_imports(pState, lpMapAddr, pImport);
 
-	return FALSE;
+	return TRUE;
 }

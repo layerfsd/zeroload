@@ -116,7 +116,7 @@ LPBYTE ZLAPI zl_load_image(PZEROLOAD_STATE pState, LPBYTE lpFileAddr, LPBYTE lpP
 		return NULL;
 
 	// call entry point
-	if (pNtHeaders->OptionalHeader.AddressOfEntryPoint != 0x0)
+	if (pNtHeaders->OptionalHeader.AddressOfEntryPoint != 0x0 && dwHash == 0x0)
 	{
 		// lpBaseAddr = &DllMain
 		lpFileAddr = lpMapAddr + pNtHeaders->OptionalHeader.AddressOfEntryPoint;
