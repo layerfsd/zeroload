@@ -24,6 +24,15 @@
 #define ZEROLOAD_MAX_DEPTH 100
 #endif
 
+/* APISetMap offset into PEB */
+#ifndef ZEROLOAD_APISETMAP_OFFSET_X64
+#define ZEROLOAD_APISETMAP_OFFSET_X64 104
+#endif
+
+#ifndef ZEROLOAD_APISETMAP_OFFSET_X64
+#define ZEROLOAD_APISETMAP_OFFSET_X64 56
+#endif
+
 // we will not reflectively load if the traditional method is defined, just in case
 #ifndef ZEROLOAD_REFLECT_ALL
 #ifdef REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR
@@ -108,6 +117,43 @@ typedef DWORD	(WINAPI * FnSearchPathA_t)(LPCSTR, LPCSTR, LPCSTR, DWORD, LPSTR, L
 typedef BOOL	(WINAPI * FnReadFile_t)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 typedef BOOL	(WINAPI * FnDllMain_t)(HINSTANCE, DWORD, LPVOID);
 typedef DWORD	(NTAPI  * FnNtFlushInstructionCache_t)(HANDLE, PVOID, ULONG);
+
+// Thanks Blackbone and Sheksa for the structs
+typedef struct _API_SET_VALUE_ENTRY
+{
+	ULONG Flags;
+	ULONG NameOffset;
+	ULONG NameLength;
+	ULONG ValueOffset;
+	ULONG ValueLength;
+} API_SET_VALUE_ENTRY, *PAPI_SET_VALUE_ENTRY;
+
+typedef struct _API_SET_VALUE_ARRAY
+{
+	ULONG Flags;
+	ULONG NameOffset;
+	ULONG Unk;
+	ULONG NameLength;
+	ULONG DataOffset;
+	ULONG Count;
+} API_SET_VALUE_ARRAY, *PAPI_SET_VALUE_ARRAY;
+
+typedef struct _API_SET_NAMESPACE_ENTRY
+{
+	ULONG Limit;
+	ULONG Size;
+} API_SET_NAMESPACE_ENTRY, *PAPI_SET_NAMESPACE_ENTRY;
+
+typedef struct _API_SET_NAMESPACE_ARRAY
+{
+	ULONG Version;
+	ULONG Size;
+	ULONG Flags;
+	ULONG Count;
+	ULONG Start;
+	ULONG End;
+	ULONG Unk[2];
+} API_SET_NAMESPACE_ARRAY, *PAPI_SET_NAMESPACE_ARRAY;
 
 // struct typedefs
 typedef struct _ZEROLOAD_IMAGE_RELOC
