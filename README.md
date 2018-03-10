@@ -5,7 +5,7 @@ Improvements to traditional reflective injection:
 - Any .dll imports not in original .exe are also reflective loaded
     - They will not show up in PEB_LDR_DATA lists
     - Normally, dependancy DLLs with Fewer method Reflective Injection are loaded with LoadLibraryA...
-        - With zeroload, **ALL** dependencies are reflectively loaded
+        - With zeroload, **ALL** dependencies are reflectively loaded (hence, zero "rogue" DLLs)
 - No C runtime, smaller executable size
 - Proper DLL forwarder chain parsing
 - Reusable, easier to read loader code (broken out __forceinline functions vs. giant function)
