@@ -8,7 +8,7 @@ Improvements to traditional reflective injection:
         - With zeroload, **ALL** dependencies are reflectively loaded
 - No C runtime, smaller executable size
 - Proper DLL forwarder chain parsing
-- Reusable, easier to read loader code
+- Reusable, easier to read loader code (broken out __forceinline functions vs. giant function)
 - fnv1a_32 hashing algorithm for better collision safety
 
 ## What's the Big Idea?
