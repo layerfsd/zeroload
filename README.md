@@ -22,6 +22,10 @@ Before Windows 7ish this should be relatively straightforward (although some DLL
 Alex Ionescu and others have proven these structures can be parsed from user mode (see: http://www.alex-ionescu.com/Estoteric%20Hooks.pdf). So it would seem we have everything needed to emulate the Windows loader for most DLLs.
 
 ## Where's the Code At?
-Right now the code could be a drop-in replacement for normal Reflective DLL injection (indeed, the project is set up to just work as such, with the same defines etc.). 
+Right now the code could be a drop-in replacement for normal Reflective DLL injection (indeed, the project is set up to just work as such, with the same defines etc.). This includes the Metasploit additions to the Fewer method.
 
-API Set parsing code is also implemented. There is a little bit of glue and debugging that needs to happen to put it all together. See: ZEROLOAD_STATE.bReflectAll
+So Fewer method is done. What's not done is the whole point... zero loading. API Set parsing code is implemented. There is a little bit of glue and debugging that needs to happen to put it all together. See: ZEROLOAD_STATE.bReflectAll
+
+## Where's the Rabbit Hole start?
+- https://github.com/zerosum0x0/zeroload/blob/master/zdi/dll/zeroload/zeroload.c#L8
+- https://github.com/zerosum0x0/zeroload/blob/master/zdi/dll/zeroload/load.h#L77
