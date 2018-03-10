@@ -30,6 +30,8 @@ void check_api_set(DWORD dwDllHash)
 		{
 			PVOID pApiName = (PUCHAR)pApiSetMap + pHostArray->NameOffset;
 			DWORD pApiLength = pHostArray->NameLength;
+			
+			// todo: zload this API set
 		}
 	}
-	}
+}
