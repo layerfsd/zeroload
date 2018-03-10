@@ -28,4 +28,4 @@ So Fewer method is done. What's not done is the whole point... zero loading. API
 
 ## Where's the Rabbit Hole start?
 - https://github.com/zerosum0x0/zeroload/blob/master/zdi/dll/zeroload/zeroload.c#L8
-- https://github.com/zerosum0x0/zeroload/blob/master/zdi/dll/zeroload/load.h#L77
+- https://github.com/zerosum0x0/zeroload/blob/master/zdi/dll/zeroload/load.h#L72
