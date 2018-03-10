@@ -14,7 +14,7 @@ Improvements to traditional reflective injection:
 - fnv1a_32 hashing algorithm for better collision safety
 
 ## What's the Big Idea?
-In the case of normal Reflective DLL injection (Fewer method), only the reflective DLL is loaded via a stealthy method. Its dependency DLLs are loaded via LoadLibrary... this means means that if you inject a reverse shell DLL into notepad.exe, it will load suspicious things like ws2_32.dll and other DLLs into the process.
+In the case of normal Reflective DLL injection (Fewer method), only the reflective DLL is loaded via a stealthy method. Its dependency DLLs (imports) are loaded via LoadLibrary... this means means that if you inject a reverse shell DLL into notepad.exe, it will load suspicious things like ws2_32.dll and other DLLs into the process.
 
 zeroload is an attempt to completely emulate the Windows loader. If you inject a zeroload DLL into notepad.exe, -ALL- import DLL's should be loaded reflectively as well and hidden from basic tooling.
 
