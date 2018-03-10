@@ -4,13 +4,15 @@ Improvements to traditional reflective injection:
 
 - Any .dll imports not in original .exe are also reflective loaded
     - They will not show up in PEB_LDR_DATA lists
+    - Normally, dependancy DLLs are loaded with LoadLibraryA...
+        - With ZeroLoad, ALL dependencies are reflectively loaded
 - No C runtime, smaller executable size
 - Proper DLL forwarder chain parsing
 - Reusable, easier to read loader code
 - fnv1a_32 hashing algorithm for better collision safety
 
 ## What's the Big Idea?
-In the case of normal DLL injection, only the reflective DLL is loaded via a stealthy method. Its dependency DLLs are loaded via LoadLibrary... this means means that if you inject a reverse shell DLL into notepad.exe, it will load suspicious things like ws2_32.dll and other DLLs into the process.
+In the case of normal DLL injection (Fewer method), only the reflective DLL is loaded via a stealthy method. Its dependency DLLs are loaded via LoadLibrary... this means means that if you inject a reverse shell DLL into notepad.exe, it will load suspicious things like ws2_32.dll and other DLLs into the process.
 
 ZeroLoad is an attempt to completely emulate the Windows loader. If you inject a DLL into notepad.exe, -ALL- DLL's should be loaded reflectively and hidden from basic tooling.
 
