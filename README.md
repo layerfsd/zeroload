@@ -24,4 +24,4 @@ Alex Ionescu and others have proven these structures can be parsed from user mod
 ## Where's the Code At?
 Right now the code could be a drop-in replacement for normal Reflective DLL injection (indeed, the project is set up to just work as such, with the same defines etc.). 
 
-API Set parsing code is also implemented. There is a little bit of glue and debugging that needs to happen to put it all together.
+API Set parsing code is also implemented. There is a little bit of glue and debugging that needs to happen to put it all together. See: ZEROLOAD_STATE.bReflectAll
